@@ -411,7 +411,6 @@ Vec3f Quaternion3f::getRow(std::size_t i) const
 
 const Matrix3f& Transform3f::getRotationInternal() const
 {
-  std::unique_lock<std::mutex> slock(const_cast<std::mutex&>(lock_));
   if(!matrix_set)
   {
     q.toRotation(R);
