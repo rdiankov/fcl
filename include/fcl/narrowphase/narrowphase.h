@@ -482,6 +482,36 @@ bool GJKSolver_libccd::shapeDistance<Capsule, Capsule>(const Capsule& s1, const 
                                                        const Capsule& s2, const Transform3f& tf2,
                                                        FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const;
 
+template<>
+bool GJKSolver_libccd::shapeDistance<Sphere, Halfspace>(const Sphere& s1, const Transform3f& tf1,
+                                                        const Halfspace& s2, const Transform3f& tf2,
+                                                        FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const;
+
+template<>
+bool GJKSolver_libccd::shapeDistance<Halfspace, Sphere>(const Halfspace& s1, const Transform3f& tf1,
+                                                        const Sphere& s2, const Transform3f& tf2,
+                                                        FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const;
+
+template<>
+bool GJKSolver_libccd::shapeDistance<Capsule, Halfspace>(const Capsule& s1, const Transform3f& tf1,
+                                                         const Halfspace& s2, const Transform3f& tf2,
+                                                         FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const;
+
+template<>
+bool GJKSolver_libccd::shapeDistance<Halfspace, Capsule>(const Halfspace& s1, const Transform3f& tf1,
+                                                         const Capsule& s2, const Transform3f& tf2,
+                                                         FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const;
+
+template<>
+bool GJKSolver_libccd::shapeDistance<Box, Halfspace>(const Box& s1, const Transform3f& tf1,
+                                                     const Halfspace& s2, const Transform3f& tf2,
+                                                     FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const;
+
+template<>
+bool GJKSolver_libccd::shapeDistance<Halfspace, Box>(const Halfspace& s1, const Transform3f& tf1,
+                                                     const Box& s2, const Transform3f& tf2,
+                                                     FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const;
+
 /// @brief Fast implementation for sphere-triangle distance
 template<>
 bool GJKSolver_libccd::shapeTriangleDistance<Sphere>(const Sphere& s, const Transform3f& tf,
@@ -1074,6 +1104,36 @@ template<>
 bool GJKSolver_indep::shapeDistance<Capsule, Capsule>(const Capsule& s1, const Transform3f& tf1,
                                                       const Capsule& s2, const Transform3f& tf2,
                                                       FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const;
+
+template<>
+bool GJKSolver_indep::shapeDistance<Sphere, Halfspace>(const Sphere& s1, const Transform3f& tf1,
+                                                       const Halfspace& s2, const Transform3f& tf2,
+                                                       FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const;
+
+template<>
+bool GJKSolver_indep::shapeDistance<Halfspace, Sphere>(const Halfspace& s1, const Transform3f& tf1,
+                                                       const Sphere& s2, const Transform3f& tf2,
+                                                       FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const;
+
+template<>
+bool GJKSolver_indep::shapeDistance<Capsule, Halfspace>(const Capsule& s1, const Transform3f& tf1,
+                                                        const Halfspace& s2, const Transform3f& tf2,
+                                                        FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const;
+
+template<>
+bool GJKSolver_indep::shapeDistance<Halfspace, Capsule>(const Halfspace& s1, const Transform3f& tf1,
+                                                        const Capsule& s2, const Transform3f& tf2,
+                                                        FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const;
+
+template<>
+bool GJKSolver_indep::shapeDistance<Box, Halfspace>(const Box& s1, const Transform3f& tf1,
+                                                    const Halfspace& s2, const Transform3f& tf2,
+                                                    FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const;
+
+template<>
+bool GJKSolver_indep::shapeDistance<Halfspace, Box>(const Halfspace& s1, const Transform3f& tf1,
+                                                    const Box& s2, const Transform3f& tf2,
+                                                    FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const;
 
 /// @brief Fast implementation for sphere-triangle distance
 template<>

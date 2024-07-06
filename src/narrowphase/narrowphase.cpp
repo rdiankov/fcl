@@ -1503,6 +1503,26 @@ double halfspaceIntersectTolerance()
   return 0.0000001;
 }
 
+bool sphereHalfspaceDistance(const Sphere& s1, const Transform3f& tf1,
+                             const Halfspace& s2, const Transform3f& tf2,
+                             FCL_REAL* dist, Vec3f* p1, Vec3f* p2)
+{
+  Halfspace new_s2 = transform(s2, tf1.inverseTimes(tf2)); // in s1's frame
+
+  FCL_REAL d = new_s2.signedDistance(Vec3f()) - s1.radius;
+
+  if(d < halfspaceIntersectTolerance<FCL_REAL>())
+  {
+    if(dist) *dist = -1;
+    return false;
+  }
+
+  if(dist) *dist = d;
+  if(p1) *p1 = -new_s2.n * s1.radius;
+  if(p2) *p2 = tf2.inverseTimes(tf1).getTranslation() - s2.n * (*dist + s1.radius);
+  return true;
+}
+
 bool sphereHalfspaceIntersect(const Sphere& s1, const Transform3f& tf1,
                               const Halfspace& s2, const Transform3f& tf2,
                               std::vector<ContactPoint>* contacts)
@@ -1568,6 +1588,36 @@ bool ellipsoidHalfspaceIntersect(const Ellipsoid& s1, const Transform3f& tf1,
   {
     return false;
   }
+}
+
+bool boxHalfspaceDistance(const Box& s1, const Transform3f& tf1, 
+                          const Halfspace& s2, const Transform3f& tf2,
+                          FCL_REAL* dist, Vec3f* p1, Vec3f* p2)
+{
+  Halfspace new_s2 = transform(s2, tf1.inverseTimes(tf2)); // in s1's frame
+
+  Vec3f B = new_s2.n * s1.side * 0.5;
+  Vec3f P1;
+  if(p1 || p2)
+  {
+    for(size_t i = 0; i < 3; ++i)
+    {
+      P1[i] = B[i] < 0 ? s1.side[i] * 0.5 : -s1.side[i] * 0.5;
+    }
+  }
+  B = abs(B);
+  FCL_REAL d = new_s2.signedDistance(Vec3f()) - (B[0] + B[1] + B[2]);
+
+  if(d < halfspaceIntersectTolerance<FCL_REAL>())
+  {
+    if(dist) *dist = -1;
+    return false;
+  }
+
+  if(dist) *dist = d;
+  if(p1) *p1 = P1;
+  if(p2) *p2 = tf2.inverseTimes(tf1).transform(P1) - s2.n * (*dist);
+  return true;
 }
 
 /// @brief box half space, a, b, c  = +/- edge size
@@ -1659,6 +1709,31 @@ bool boxHalfspaceIntersect(const Box& s1, const Transform3f& tf1,
     
     return true;
   }
+}
+
+bool capsuleHalfspaceDistance(const Capsule& s1, const Transform3f& tf1,
+                              const Halfspace& s2, const Transform3f& tf2,
+                              FCL_REAL* dist, Vec3f* p1, Vec3f* p2)
+{
+  Halfspace new_s2 = transform(s2, tf1.inverseTimes(tf2)); // in s1's frame
+
+  FCL_REAL d0 = new_s2.signedDistance(Vec3f(0, 0, 0.5 * s1.lz)) - s1.radius;
+  FCL_REAL d1 = new_s2.signedDistance(Vec3f(0, 0, -0.5 * s1.lz)) - s1.radius;
+
+  if(d0 < halfspaceIntersectTolerance<FCL_REAL>() || d1 < halfspaceIntersectTolerance<FCL_REAL>())
+  {
+    if(dist) *dist = -1;
+    return false;
+  }
+
+  FCL_REAL lz_sign = 0;
+  if(d0 < d1) lz_sign = +1;
+  else lz_sign = -1;
+
+  if(dist) *dist = std::min(d0, d1);
+  if(p1) *p1 = Vec3f(0, 0, lz_sign * 0.5 * s1.lz) - new_s2.n * s1.radius;
+  if(p2) *p2 = tf2.inverseTimes(tf1).transform(Vec3f(0, 0, lz_sign * 0.5 * s1.lz)) - s2.n * (*dist + s1.radius);
+  return true;
 }
 
 bool capsuleHalfspaceIntersect(const Capsule& s1, const Transform3f& tf1,
@@ -3077,13 +3152,13 @@ bool GJKSolver_libccd::shapeTriangleIntersect(const Plane& s, const Transform3f&
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
 // |            | box | sphere | ellipsoid | capsule | cone | cylinder | plane | half-space | triangle |
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
-// | box        |     |        |           |         |      |          |       |            |          |
+// | box        |     |        |           |         |      |          |       |     O      |          |
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
-// | sphere     |/////|   O    |           |    O    |      |          |       |            |     O    |
+// | sphere     |/////|   O    |           |    O    |      |          |       |     O      |     O    |
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
 // | ellipsoid  |/////|////////|           |         |      |          |       |            |          |
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
-// | capsule    |/////|////////|///////////|    O    |      |          |       |            |          |
+// | capsule    |/////|////////|///////////|    O    |      |          |       |     O      |          |
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
 // | cone       |/////|////////|///////////|/////////|      |          |       |            |          |
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
@@ -3128,7 +3203,53 @@ bool GJKSolver_libccd::shapeDistance<Capsule, Capsule>(const Capsule& s1, const 
   return details::capsuleCapsuleDistance(s1, tf1, s2, tf2, dist, p1, p2);
 }
 
+template<>
+bool GJKSolver_libccd::shapeDistance<Sphere, Halfspace>(const Sphere& s1, const Transform3f& tf1,
+                                                        const Halfspace& s2, const Transform3f& tf2,
+                                                        FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const
+{
+  return details::sphereHalfspaceDistance(s1, tf1, s2, tf2, dist, p1, p2);
+}
 
+template<>
+bool GJKSolver_libccd::shapeDistance<Halfspace, Sphere>(const Halfspace& s1, const Transform3f& tf1,
+                                                        const Sphere& s2, const Transform3f& tf2,
+                                                        FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const
+{
+  return details::sphereHalfspaceDistance(s2, tf2, s1, tf1, dist, p2, p1);
+}
+
+template<>
+bool GJKSolver_libccd::shapeDistance<Capsule, Halfspace>(const Capsule& s1, const Transform3f& tf1,
+                                                         const Halfspace& s2, const Transform3f& tf2,
+                                                         FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const
+{
+  return details::capsuleHalfspaceDistance(s1, tf1, s2, tf2, dist, p1, p2);
+}
+
+template<>
+bool GJKSolver_libccd::shapeDistance<Halfspace, Capsule>(const Halfspace& s1, const Transform3f& tf1,
+                                                         const Capsule& s2, const Transform3f& tf2,
+                                                         FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const
+{
+  return details::capsuleHalfspaceDistance(s2, tf2, s1, tf1, dist, p2, p1);
+}
+
+template<>
+bool GJKSolver_libccd::shapeDistance<Box, Halfspace>(const Box& s1, const Transform3f& tf1,
+                                                     const Halfspace& s2, const Transform3f& tf2,
+                                                     FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const
+{
+  return details::boxHalfspaceDistance(s1, tf1, s2, tf2, dist, p1, p2);
+}
+
+template<>
+bool GJKSolver_libccd::shapeDistance<Halfspace, Box>(const Halfspace& s1, const Transform3f& tf1,
+                                                     const Box& s2, const Transform3f& tf2,
+                                                     FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const
+{
+  return details::boxHalfspaceDistance(s2, tf2, s1, tf1, dist, p2, p1);
+}
 
 
 template<>
@@ -3501,13 +3622,13 @@ bool GJKSolver_indep::shapeTriangleIntersect(const Plane& s, const Transform3f& 
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
 // |            | box | sphere | ellipsoid | capsule | cone | cylinder | plane | half-space | triangle |
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
-// | box        |     |        |           |         |      |          |       |            |          |
+// | box        |     |        |           |         |      |          |       |     O      |          |
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
-// | sphere     |/////|   O    |           |    O    |      |          |       |            |     O    |
+// | sphere     |/////|   O    |           |    O    |      |          |       |     O      |     O    |
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
 // | ellipsoid  |/////|////////|           |         |      |          |       |            |          |
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
-// | capsule    |/////|////////|///////////|    O    |      |          |       |            |          |
+// | capsule    |/////|////////|///////////|    O    |      |          |       |     O      |          |
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
 // | cone       |/////|////////|///////////|/////////|      |          |       |            |          |
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
@@ -3552,6 +3673,53 @@ bool GJKSolver_indep::shapeDistance<Capsule, Capsule>(const Capsule& s1, const T
   return details::capsuleCapsuleDistance(s1, tf1, s2, tf2, dist, p1, p2);
 }
 
+template<>
+bool GJKSolver_indep::shapeDistance<Sphere, Halfspace>(const Sphere& s1, const Transform3f& tf1,
+                                                        const Halfspace& s2, const Transform3f& tf2,
+                                                        FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const
+{
+  return details::sphereHalfspaceDistance(s1, tf1, s2, tf2, dist, p1, p2);
+}
+
+template<>
+bool GJKSolver_indep::shapeDistance<Halfspace, Sphere>(const Halfspace& s1, const Transform3f& tf1,
+                                                        const Sphere& s2, const Transform3f& tf2,
+                                                        FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const
+{
+  return details::sphereHalfspaceDistance(s2, tf2, s1, tf1, dist, p2, p1);
+}
+
+template<>
+bool GJKSolver_indep::shapeDistance<Capsule, Halfspace>(const Capsule& s1, const Transform3f& tf1,
+                                                         const Halfspace& s2, const Transform3f& tf2,
+                                                         FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const
+{
+  return details::capsuleHalfspaceDistance(s1, tf1, s2, tf2, dist, p1, p2);
+}
+
+template<>
+bool GJKSolver_indep::shapeDistance<Halfspace, Capsule>(const Halfspace& s1, const Transform3f& tf1,
+                                                         const Capsule& s2, const Transform3f& tf2,
+                                                         FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const
+{
+  return details::capsuleHalfspaceDistance(s2, tf2, s1, tf1, dist, p2, p1);
+}
+
+template<>
+bool GJKSolver_indep::shapeDistance<Box, Halfspace>(const Box& s1, const Transform3f& tf1,
+                                                     const Halfspace& s2, const Transform3f& tf2,
+                                                     FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const
+{
+  return details::boxHalfspaceDistance(s1, tf1, s2, tf2, dist, p1, p2);
+}
+
+template<>
+bool GJKSolver_indep::shapeDistance<Halfspace, Box>(const Halfspace& s1, const Transform3f& tf1,
+                                                     const Box& s2, const Transform3f& tf2,
+                                                     FCL_REAL* dist, Vec3f* p1, Vec3f* p2) const
+{
+  return details::boxHalfspaceDistance(s2, tf2, s1, tf1, dist, p2, p1);
+}
 
 
 

@@ -3355,13 +3355,13 @@ BOOST_AUTO_TEST_CASE(shapeIntersection_planecone)
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
 // |            | box | sphere | ellipsoid | capsule | cone | cylinder | plane | half-space | triangle |
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
-// | box        |  O  |   O    |           |         |      |          |       |            |          |
+// | box        |  O  |   O    |           |         |      |          |       |     O      |          |
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
-// | sphere     |/////|   O    |           |         |      |          |       |            |          |
+// | sphere     |/////|   O    |           |         |      |          |       |     O      |          |
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
 // | ellipsoid  |/////|////////|     O     |         |      |          |       |            |          |
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
-// | capsule    |/////|////////|///////////|         |      |          |       |            |          |
+// | capsule    |/////|////////|///////////|         |      |          |       |     O      |          |
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
 // | cone       |/////|////////|///////////|/////////|  O   |    O     |       |            |          |
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
@@ -3704,6 +3704,111 @@ BOOST_AUTO_TEST_CASE(shapeDistance_ellipsoidellipsoid)
   BOOST_CHECK(res);
 
   res = solver1.shapeDistance(s1, transform * Transform3f(Vec3f(29.9, 0, 0)), s2, transform, &dist);
+  BOOST_CHECK(dist < 0);
+  BOOST_CHECK_FALSE(res);
+}
+
+BOOST_AUTO_TEST_CASE(shapeDistance_spherehalfspace)
+{
+  Sphere s1(10);
+  Halfspace s2(Vec3f(0, 0, -1), 0);
+
+  bool res;
+  FCL_REAL dist = -1;
+  Vec3f closest_p1, closest_p2;
+  res = solver1.shapeDistance(s1, Transform3f(), s2, Transform3f(Vec3f(0, 0, 20)), &dist, &closest_p1, &closest_p2);
+  BOOST_CHECK(fabs(dist - 10) < 0.001);
+  BOOST_CHECK((closest_p1 - Vec3f(0, 0, 10)).norm() < 0.001);
+  BOOST_CHECK((closest_p2 - Vec3f(0, 0, 0)).norm() < 0.001);
+  BOOST_CHECK(res);
+
+  res = solver1.shapeDistance(s1, Transform3f(), s2, Transform3f(Vec3f(0, 0, 10.1)), &dist);
+  BOOST_CHECK(fabs(dist - 0.1) < 0.001);
+  BOOST_CHECK(res);
+
+  res = solver1.shapeDistance(s1, Transform3f(), s2, Transform3f(Vec3f(0, 0, 9.9)), &dist);
+  BOOST_CHECK(dist < 0);
+  BOOST_CHECK_FALSE(res);
+
+  res = solver1.shapeDistance(s1, Transform3f(Vec3f(0, 0, -20)), s2, Transform3f(), &dist);
+  BOOST_CHECK(fabs(dist - 10) < 0.001);
+  BOOST_CHECK(res);
+
+  res = solver1.shapeDistance(s1, Transform3f(Vec3f(0, 0, -10.1)), s2, Transform3f(), &dist);
+  BOOST_CHECK(fabs(dist - 0.1) < 0.001);
+  BOOST_CHECK(res);
+
+  res = solver1.shapeDistance(s1, Transform3f(Vec3f(0, 0, -9.9)), s2, Transform3f(), &dist);
+  BOOST_CHECK(dist < 0);
+  BOOST_CHECK_FALSE(res);
+}
+
+BOOST_AUTO_TEST_CASE(shapeDistance_capsulehalfspace)
+{
+  Capsule s1(10, 20);
+  Halfspace s2(Vec3f(0, 0, -1), 0);
+
+  bool res;
+  FCL_REAL dist = -1;
+  Vec3f closest_p1, closest_p2;
+  res = solver1.shapeDistance(s1, Transform3f(), s2, Transform3f(Vec3f(0, 0, 30)), &dist, &closest_p1, &closest_p2);
+  BOOST_CHECK(fabs(dist - 10) < 0.001);
+  BOOST_CHECK((closest_p1 - Vec3f(0, 0, 20)).norm() < 0.001);
+  BOOST_CHECK((closest_p2 - Vec3f(0, 0, 0)).norm() < 0.001);
+  BOOST_CHECK(res);
+
+  res = solver1.shapeDistance(s1, Transform3f(), s2, Transform3f(Vec3f(0, 0, 20.1)), &dist);
+  BOOST_CHECK(fabs(dist - 0.1) < 0.001);
+  BOOST_CHECK(res);
+
+  res = solver1.shapeDistance(s1, Transform3f(), s2, Transform3f(Vec3f(0, 0, 19.9)), &dist);
+  BOOST_CHECK(dist < 0);
+  BOOST_CHECK_FALSE(res);
+
+  res = solver1.shapeDistance(s1, Transform3f(Vec3f(0, 0, -30)), s2, Transform3f(), &dist);
+  BOOST_CHECK(fabs(dist - 10) < 0.001);
+  BOOST_CHECK(res);
+
+  res = solver1.shapeDistance(s1, Transform3f(Vec3f(0, 0, -20.1)), s2, Transform3f(), &dist);
+  BOOST_CHECK(fabs(dist - 0.1) < 0.001);
+  BOOST_CHECK(res);
+
+  res = solver1.shapeDistance(s1, Transform3f(Vec3f(0, 0, -19.9)), s2, Transform3f(), &dist);
+  BOOST_CHECK(dist < 0);
+  BOOST_CHECK_FALSE(res);
+}
+
+BOOST_AUTO_TEST_CASE(shapeDistance_boxhalfspace)
+{
+  Box s1(10, 10, 10);
+  Halfspace s2(Vec3f(-1, -1, -1), 0);
+
+  bool res;
+  FCL_REAL dist = -1;
+  Vec3f closest_p1, closest_p2;
+  res = solver1.shapeDistance(s1, Transform3f(), s2, Transform3f(Vec3f(1, 1, 1) * 25 / 3.0), &dist, &closest_p1, &closest_p2);
+  BOOST_CHECK(fabs(dist - 10 * sqrt(3) / 3.0) < 0.001);
+  BOOST_CHECK((closest_p1 - Vec3f(5, 5, 5)).norm() < 0.001);
+  BOOST_CHECK((closest_p2 - Vec3f(0, 0, 0)).norm() < 0.001);
+  BOOST_CHECK(res);
+
+  res = solver1.shapeDistance(s1, Transform3f(), s2, Transform3f(Vec3f(0, 0, 15.1)), &dist);
+  BOOST_CHECK(fabs(dist - 0.1 * sqrt(3) / 3.0) < 0.001);
+  BOOST_CHECK(res);
+
+  res = solver1.shapeDistance(s1, Transform3f(), s2, Transform3f(Vec3f(0, 0, 14.9)), &dist);
+  BOOST_CHECK(dist < 0);
+  BOOST_CHECK_FALSE(res);
+
+  res = solver1.shapeDistance(s1, Transform3f(Vec3f(0, 0, -25)), s2, Transform3f(), &dist);
+  BOOST_CHECK(fabs(dist - 10 * sqrt(3) / 3.0) < 0.001);
+  BOOST_CHECK(res);
+
+  res = solver1.shapeDistance(s1, Transform3f(Vec3f(0, 0, -15.1)), s2, Transform3f(), &dist);
+  BOOST_CHECK(fabs(dist - 0.1 * sqrt(3) / 3.0) < 0.001);
+  BOOST_CHECK(res);
+
+  res = solver1.shapeDistance(s1, Transform3f(Vec3f(0, 0, -14.9)), s2, Transform3f(), &dist);
   BOOST_CHECK(dist < 0);
   BOOST_CHECK_FALSE(res);
 }
@@ -4374,13 +4479,13 @@ BOOST_AUTO_TEST_CASE(shapeIntersectionGJK_planetriangle)
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
 // |            | box | sphere | ellipsoid | capsule | cone | cylinder | plane | half-space | triangle |
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
-// | box        |  O  |   O    |           |         |      |          |       |            |          |
+// | box        |  O  |   O    |           |         |      |          |       |     O      |          |
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
-// | sphere     |/////|   O    |           |         |      |          |       |            |          |
+// | sphere     |/////|   O    |           |         |      |          |       |     O      |          |
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
 // | ellipsoid  |/////|////////|     O     |         |      |          |       |            |          |
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
-// | capsule    |/////|////////|///////////|         |      |          |       |            |          |
+// | capsule    |/////|////////|///////////|         |      |          |       |     O      |          |
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
 // | cone       |/////|////////|///////////|/////////|  O   |          |       |            |          |
 // +------------+-----+--------+-----------+---------+------+----------+-------+------------+----------+
